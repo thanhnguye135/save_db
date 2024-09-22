@@ -4,50 +4,58 @@ const { Queue } = require("bullmq");
 const redisConnection = require("./redis-connection");
 
 const BATCH_QUEUE_NAME = "transactionBatchQueue";
-const CHUNK = 20000;
+const CHUNK_SIZE = 10000;
 
 const batchQueue = new Queue(BATCH_QUEUE_NAME, { connection: redisConnection });
 
-const addBatchToQueue = async (batch) => {
-  await batchQueue.add("batchProcess", batch);
-  batch = null;
+const addBatchToQueue = async (batch, batchId) => {
+  try {
+    await batchQueue.add("batchProcess", batch, { jobId: batchId });
+  } catch (error) {
+    console.error("Failed to add batch to queue:", error);
+  }
 };
 
 const parseAndSaveCsv = (filePath) => {
   let records = [];
-
-  console.time("saved db");
   let stream = fs.createReadStream(filePath).pipe(csv());
 
   stream
     .on("data", async (data) => {
-      let keys = Object.keys(data);
-      records.push({
-        transactionDate: formatDate(data[keys[0]].split("_")[0]),
-        docNumber: data[keys[0]].split("_")[1],
-        debit: data[keys[3]],
-        credit: data[keys[2]],
-        vnd: formatVnd(data[keys[2]]),
-        balance: 0,
-        transactionDetails: data[keys[4]],
-      });
-
-      keys = [];
-
-      if (records.length >= CHUNK) {
-        let batch = records;
-        records = [];
-        await addBatchToQueue(batch);
+      try {
+        let keys = Object.keys(data);
+        records.push({
+          transactionDate: formatDate(data[keys[0]].split("_")[0]),
+          docNumber: data[keys[0]].split("_")[1],
+          debit: data[keys[3]],
+          credit: data[keys[2]],
+          vnd: formatVnd(data[keys[2]]),
+          balance: 0,
+          transactionDetails: data[keys[4]],
+        });
+        keys = null;
+        if (records.length >= CHUNK_SIZE) {
+          let batch = records.splice(0, CHUNK_SIZE);
+          const batchId = `batch_${Date.now()}_${Math.random()}`;
+          await addBatchToQueue(batch, batchId);
+          batch = null;
+        }
+      } catch (error) {
+        console.error("Error processing record:", error);
       }
     })
     .on("end", async () => {
-      if (records.length > 0) {
-        await addBatchToQueue(records);
+      try {
+        if (records.length > 0) {
+          await addBatchToQueue(records); // Process remaining records
+        }
+        console.log("CSV file successfully processed.");
+      } catch (error) {
+        console.error("Error processing remaining records:", error);
+      } finally {
+        records = []; // Clear the reference
+        stream = null; // Clear the stream reference
       }
-      records = null;
-      stream = null;
-      console.timeEnd("saved db");
-      console.log("CSV file successfully processed.");
     })
     .on("error", (err) => {
       console.error("Error reading the file:", err);
@@ -66,7 +74,8 @@ const formatDate = (isoDate) => {
   return new Intl.DateTimeFormat("en-US").format(date);
 };
 
-// parseAndSaveCsv("/home/monochromatic/Downloads/chuyen_khoan.csv");
-// parseAndSaveCsv("./random_transactions_corrected.csv");
+parseAndSaveCsv("/home/monochromatic/Downloads/chuyen_khoan.csv");
+// parseAndSaveCsv("/home/monochromatic/random_transactions_corrected.csv");
 // parseAndSaveCsv("/home/monochromatic/two_m_records.csv");
-parseAndSaveCsv("/home/monochromatic/fake_data.csv");
+// parseAndSaveCsv("/home/monochromatic/seven_m_records.csv");
+// parseAndSaveCsv("/home/monochromatic/fake_data.csv");

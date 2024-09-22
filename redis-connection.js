@@ -1,8 +1,8 @@
 const Redis = require("ioredis");
 
 const redisConfig = {
-  host: "127.0.0.1",
-  port: 6379,
+  host: process.env.HOST_REDIS,
+  port: process.env.PORT_REDIS,
   maxRetriesPerRequest: null,
 };
 

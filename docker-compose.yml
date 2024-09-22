@@ -16,3 +16,8 @@ services:
     image: mongo:latest
     ports:
       - 27017:27017
+
+  elasticsearch:
+    image: elasticsearch:7.17.24
+    ports:
+      - 9200:9200
