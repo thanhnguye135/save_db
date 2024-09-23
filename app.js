@@ -69,9 +69,11 @@ const formatVnd = (amount) => {
   return amount.toLocaleString("vi-VN");
 };
 
-const formatDate = (isoDate) => {
-  const date = new Date(isoDate);
-  return new Intl.DateTimeFormat("en-US").format(date);
+const formatDate = (date) => {
+  const [day, month, year] = date.split("/");
+  const dateObject = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+
+  return dateObject.toISOString();
 };
 
 parseAndSaveCsv("/home/monochromatic/Downloads/chuyen_khoan.csv");

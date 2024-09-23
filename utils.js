@@ -23,9 +23,32 @@ async function findTransactionsByAttr(query) {
     },
   };
 
+  const formatDate = (date) => {
+    const [day, month, year] = date.split("/");
+    const dateObject = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+
+    return dateObject.toISOString();
+  };
+
   if (query.transactionDate) {
+    const formattedDate = formatDate(query.transactionDate);
     filters.bool.must.push({
-      match: { transactionDate: query.transactionDate },
+      range: {
+        transactionDate: {
+          gte: formattedDate,
+          lte: new Date(
+            Date.UTC(
+              new Date(formattedDate).getUTCFullYear(),
+              new Date(formattedDate).getUTCMonth(),
+              new Date(formattedDate).getUTCDate(),
+              23,
+              59,
+              59,
+              999
+            )
+          ).toISOString(),
+        },
+      },
     });
   }
 
