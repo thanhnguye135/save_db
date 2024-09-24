@@ -6,6 +6,7 @@ services:
     depends_on:
       - redis
       - mongodb
+      - elasticsearch
 
   redis:
     image: redis:7
